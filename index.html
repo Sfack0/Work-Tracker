@@ -333,6 +333,73 @@
   .bar-fill { height: 100%; background: linear-gradient(90deg, var(--primary), #8b5cf6); border-radius: 4px; }
   .bar-value { width: 70px; text-align: right; font-weight: 600; }
 
+  .time-btn {
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .time-btn:active { background: var(--surface-2); border-color: var(--primary); }
+  .time-btn-value { letter-spacing: 0.5px; }
+  .time-btn-icon { font-size: 16px; opacity: 0.7; }
+  .time-btn.empty .time-btn-value { color: var(--muted); font-weight: 500; }
+
+  .hour-wheel {
+    position: relative;
+    height: 240px;
+    margin: 8px 0 16px;
+    background: var(--bg);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .hour-wheel-scroll {
+    height: 100%;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    scrollbar-width: none;
+    padding: 96px 0;
+  }
+  .hour-wheel-scroll::-webkit-scrollbar { display: none; }
+  .hour-wheel-item {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 600;
+    scroll-snap-align: center;
+    color: var(--muted);
+    transition: color 0.2s, transform 0.2s;
+    cursor: pointer;
+  }
+  .hour-wheel-item.center {
+    color: var(--text);
+    font-size: 28px;
+  }
+  .hour-wheel-highlight {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 48px;
+    border-top: 1px solid var(--primary);
+    border-bottom: 1px solid var(--primary);
+    pointer-events: none;
+    background: rgba(99, 102, 241, 0.08);
+  }
+
   .toast {
     position: fixed;
     top: 70px;
@@ -390,6 +457,7 @@
 </header>
 
 <div class="menu-dropdown" id="menuDropdown">
+  <button onclick="openSettings()">⚙️ Ρυθμίσεις</button>
   <button onclick="exportData()">📤 Backup (κατέβασμα JSON)</button>
   <button onclick="document.getElementById('importFile').click()">📥 Restore από backup</button>
   <button onclick="reloadData()">🔄 Ανανέωση</button>
@@ -445,26 +513,31 @@
       <div class="form-row">
         <div class="form-group">
           <label>Έναρξη</label>
-          <input type="time" id="shiftStart" required>
+          <button type="button" class="time-btn" id="shiftStartBtn" onclick="openHourPicker('start')">
+            <span class="time-btn-value" id="shiftStartLabel">--:00</span>
+          </button>
+          <input type="hidden" id="shiftStart" required>
         </div>
         <div class="form-group">
           <label>Λήξη</label>
-          <input type="time" id="shiftEnd" required>
+          <button type="button" class="time-btn" id="shiftEndBtn" onclick="openHourPicker('end')">
+            <span class="time-btn-value" id="shiftEndLabel">--:00</span>
+            <span class="time-btn-icon">🕐</span>
+          </button>
+          <input type="hidden" id="shiftEnd" required>
         </div>
       </div>
       <div class="form-group">
         <label>Υπερωρίες (ώρες) — προαιρετικό</label>
         <input type="number" id="shiftOvertime" step="0.25" min="0" placeholder="0">
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Μεροκάματο (€)</label>
-          <input type="number" id="shiftWage" step="0.01" min="0" placeholder="0.00" required>
-        </div>
-        <div class="form-group">
-          <label>Τιπς (€)</label>
-          <input type="number" id="shiftTips" step="0.01" min="0" placeholder="0.00">
-        </div>
+      <div class="form-group">
+        <label>Τιπς (€)</label>
+        <input type="number" id="shiftTips" step="0.01" min="0" placeholder="0.00">
+      </div>
+      <div id="wagePreview" style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 14px; font-size: 13px; color: var(--muted);">
+        <div style="margin-bottom: 4px;">Υπολογιζόμενο μεροκάματο:</div>
+        <div id="wagePreviewValue" style="font-size: 18px; font-weight: 700; color: var(--success);">€0.00</div>
       </div>
       <div class="form-group">
         <label>Σημειώσεις</label>
@@ -476,6 +549,39 @@
       </div>
       <div class="modal-actions" id="deleteRow" style="display:none">
         <button type="button" class="btn btn-danger" onclick="deleteShift()">Διαγραφή βάρδιας</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="hourPickerModal">
+  <div class="modal">
+    <h2 id="hourPickerTitle">Επίλεξε ώρα</h2>
+    <div class="hour-wheel">
+      <div class="hour-wheel-scroll" id="hourWheelScroll"></div>
+      <div class="hour-wheel-highlight"></div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" onclick="closeHourPicker()">Ακύρωση</button>
+      <button type="button" class="btn" onclick="confirmHourPick()">Επιλογή</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal">
+    <h2>⚙️ Ρυθμίσεις</h2>
+    <form id="settingsForm">
+      <div class="form-group">
+        <label>Ωριαία αμοιβή (€/ώρα)</label>
+        <input type="number" id="hourlyRate" step="0.01" min="0" placeholder="π.χ. 5.50" required>
+        <div style="font-size: 12px; color: var(--muted); margin-top: 6px;">
+          Το μεροκάματο και οι υπερωρίες θα υπολογίζονται αυτόματα με βάση αυτή την τιμή.
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeSettings()">Ακύρωση</button>
+        <button type="submit" class="btn">Αποθήκευση</button>
       </div>
     </form>
   </div>
@@ -494,6 +600,7 @@ const DAYS_GR = ['Κυρ', 'Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σ
 const MONTHS_GR = ['Ιανουάριος','Φεβρουάριος','Μάρτιος','Απρίλιος','Μάιος','Ιούνιος','Ιούλιος','Αύγουστος','Σεπτέμβριος','Οκτώβριος','Νοέμβριος','Δεκέμβριος'];
 
 let shifts = [];
+let hourlyRate = 0;
 let currentMonthDate = new Date();
 currentMonthDate.setDate(1);
 let statsPeriod = 'month';
@@ -536,6 +643,34 @@ function toast(msg, type = '') {
 }
 
 // ---- DATA: Supabase
+async function loadSettings() {
+  const { data, error } = await supabase.from('settings').select('*').eq('key', 'hourly_rate').maybeSingle();
+  if (error) {
+    console.error(error);
+    return;
+  }
+  hourlyRate = data ? parseFloat(data.value) || 0 : 0;
+}
+
+async function saveHourlyRate(rate) {
+  setSync('syncing');
+  const { error } = await supabase.from('settings').upsert({ key: 'hourly_rate', value: String(rate) });
+  if (error) {
+    setSync('error');
+    toast('Σφάλμα: ' + error.message, 'error');
+    return false;
+  }
+  hourlyRate = rate;
+  setSync('ok');
+  return true;
+}
+
+function calcWage(start, end, overtime) {
+  if (!start || !end) return 0;
+  const regular = calcHours(start, end);
+  return (regular + Number(overtime || 0)) * hourlyRate;
+}
+
 async function loadShifts() {
   setSync('syncing');
   const { data, error } = await supabase
@@ -633,6 +768,87 @@ $('nextMonth').onclick = () => {
 // ---- ADD/EDIT SHIFT
 $('addShiftBtn').onclick = () => openModal();
 
+function updateWagePreview() {
+  const start = $('shiftStart').value;
+  const end = $('shiftEnd').value;
+  const overtime = parseFloat($('shiftOvertime').value) || 0;
+  const wage = calcWage(start, end, overtime);
+  $('wagePreviewValue').textContent = fmtEur(wage);
+}
+
+function setTimeField(which, hour) {
+  const value = String(hour).padStart(2, '0') + ':00';
+  $('shift' + (which === 'start' ? 'Start' : 'End')).value = value;
+  $('shift' + (which === 'start' ? 'Start' : 'End') + 'Label').textContent = value;
+  $('shift' + (which === 'start' ? 'Start' : 'End') + 'Btn').classList.remove('empty');
+  updateWagePreview();
+}
+
+function clearTimeField(which) {
+  $('shift' + (which === 'start' ? 'Start' : 'End')).value = '';
+  $('shift' + (which === 'start' ? 'Start' : 'End') + 'Label').textContent = '--:00';
+  $('shift' + (which === 'start' ? 'Start' : 'End') + 'Btn').classList.add('empty');
+}
+
+let currentHourField = null;
+const HOUR_ITEM_HEIGHT = 48;
+
+function getCenteredHour() {
+  const scroll = $('hourWheelScroll');
+  return Math.round(scroll.scrollTop / HOUR_ITEM_HEIGHT);
+}
+
+function updateWheelCenter() {
+  const center = getCenteredHour();
+  $('hourWheelScroll').querySelectorAll('.hour-wheel-item').forEach((el, i) => {
+    el.classList.toggle('center', i === center);
+  });
+}
+
+window.openHourPicker = (which) => {
+  currentHourField = which;
+  $('hourPickerTitle').textContent = which === 'start' ? 'Ώρα Έναρξης' : 'Ώρα Λήξης';
+  const currentValue = $('shift' + (which === 'start' ? 'Start' : 'End')).value;
+  const currentHour = currentValue ? parseInt(currentValue.slice(0,2)) : 12;
+
+  const scroll = $('hourWheelScroll');
+  scroll.innerHTML = '';
+  for (let h = 0; h < 24; h++) {
+    const item = document.createElement('div');
+    item.className = 'hour-wheel-item';
+    item.textContent = String(h).padStart(2, '0');
+    item.onclick = () => {
+      scroll.scrollTo({ top: h * HOUR_ITEM_HEIGHT, behavior: 'smooth' });
+    };
+    scroll.appendChild(item);
+  }
+
+  $('hourPickerModal').classList.add('show');
+  requestAnimationFrame(() => {
+    scroll.scrollTop = currentHour * HOUR_ITEM_HEIGHT;
+    updateWheelCenter();
+  });
+
+  scroll.onscroll = () => {
+    clearTimeout(scroll._t);
+    updateWheelCenter();
+    scroll._t = setTimeout(() => {
+      const target = getCenteredHour() * HOUR_ITEM_HEIGHT;
+      if (Math.abs(scroll.scrollTop - target) > 1) {
+        scroll.scrollTo({ top: target, behavior: 'smooth' });
+      }
+    }, 120);
+  };
+};
+
+window.closeHourPicker = () => $('hourPickerModal').classList.remove('show');
+
+window.confirmHourPick = () => {
+  const h = getCenteredHour();
+  setTimeField(currentHourField, h);
+  closeHourPicker();
+};
+
 function openModal(shift) {
   const f = $('shiftForm');
   f.reset();
@@ -641,33 +857,67 @@ function openModal(shift) {
   if (shift) {
     $('shiftId').value = shift.id;
     $('shiftDate').value = shift.date;
-    $('shiftStart').value = shift.start;
-    $('shiftEnd').value = shift.end;
+    setTimeField('start', parseInt(shift.start.slice(0,2)));
+    setTimeField('end', parseInt(shift.end.slice(0,2)));
     $('shiftOvertime').value = shift.overtime || '';
-    $('shiftWage').value = shift.wage;
     $('shiftTips').value = shift.tips || '';
     $('shiftNotes').value = shift.notes || '';
   } else {
     $('shiftId').value = '';
     $('shiftDate').value = new Date().toISOString().slice(0,10);
+    clearTimeField('start');
+    clearTimeField('end');
   }
+  updateWagePreview();
   $('shiftModal').classList.add('show');
+  if (hourlyRate === 0) {
+    toast('Όρισε ωριαία αμοιβή στις Ρυθμίσεις ⚙️', 'error');
+  }
 }
+
+['shiftStart','shiftEnd','shiftOvertime'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateWagePreview);
+});
+
+window.openSettings = () => {
+  $('hourlyRate').value = hourlyRate || '';
+  $('settingsModal').classList.add('show');
+};
+window.closeSettings = () => $('settingsModal').classList.remove('show');
+
+document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const rate = parseFloat($('hourlyRate').value);
+  if (isNaN(rate) || rate < 0) return;
+  const ok = await saveHourlyRate(rate);
+  if (ok) {
+    toast('Αποθηκεύτηκε ✓', 'success');
+    closeSettings();
+    renderShifts();
+  }
+});
 window.openModal = openModal;
 window.closeModal = () => $('shiftModal').classList.remove('show');
 
 $('shiftForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn = $('saveBtn');
+  const start = $('shiftStart').value;
+  const end = $('shiftEnd').value;
+  if (!start || !end) {
+    toast('Επίλεξε ώρα έναρξης και λήξης', 'error');
+    return;
+  }
   btn.disabled = true;
   btn.textContent = 'Αποθήκευση...';
+  const overtime = parseFloat($('shiftOvertime').value) || 0;
   const data = {
     id: $('shiftId').value || null,
     date: $('shiftDate').value,
-    start: $('shiftStart').value,
-    end: $('shiftEnd').value,
-    overtime: parseFloat($('shiftOvertime').value) || 0,
-    wage: parseFloat($('shiftWage').value) || 0,
+    start,
+    end,
+    overtime,
+    wage: calcWage(start, end, overtime),
     tips: parseFloat($('shiftTips').value) || 0,
     notes: $('shiftNotes').value.trim()
   };
@@ -919,9 +1169,15 @@ window.reloadData = async () => {
 
 // ---- INIT
 (async () => {
-  await loadShifts();
+  await Promise.all([loadSettings(), loadShifts()]);
   renderShifts();
   $('loadingOverlay').style.display = 'none';
+  if (hourlyRate === 0) {
+    setTimeout(() => {
+      toast('Όρισε ωριαία αμοιβή στις Ρυθμίσεις ⚙️', '');
+      openSettings();
+    }, 400);
+  }
 })();
 </script>
 </body>
