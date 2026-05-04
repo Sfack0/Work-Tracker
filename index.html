@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1e293b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Work Tracker</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💼</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-2: #334155;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --primary: #6366f1;
+    --primary-hover: #4f46e5;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --border: #334155;
+  }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    min-height: 100vh;
+    overscroll-behavior-y: contain;
+  }
+  body {
+    max-width: 640px;
+    margin: 0 auto;
+    padding-bottom: 80px;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 { font-size: 20px; font-weight: 700; }
+  .header-right { display: flex; align-items: center; gap: 8px; }
+  .sync-indicator {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--success); transition: background 0.3s;
+  }
+  .sync-indicator.syncing { background: var(--warning); animation: pulse 1s infinite; }
+  .sync-indicator.error { background: var(--danger); }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  header .menu-btn {
+    background: none; border: none; color: var(--text);
+    font-size: 24px; cursor: pointer; padding: 4px 8px;
+  }
+
+  .tabs {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 57px;
+    z-index: 9;
+  }
+  .tab {
+    flex: 1;
+    padding: 14px 8px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+
+  main { padding: 16px; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .card {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+  }
+
+  .form-group { margin-bottom: 14px; }
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%;
+    padding: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 16px;
+    font-family: inherit;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+  .form-row { display: flex; gap: 10px; }
+  .form-row .form-group { flex: 1; }
+
+  .btn {
+    width: 100%;
+    padding: 14px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn:active { background: var(--primary-hover); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-secondary { background: var(--surface-2); }
+  .btn-danger { background: var(--danger); }
+
+  .shift-item {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .shift-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .shift-date { font-weight: 600; font-size: 15px; }
+  .shift-day { font-size: 12px; color: var(--muted); margin-left: 6px; }
+  .shift-total { font-weight: 700; color: var(--success); font-size: 16px; }
+  .shift-details {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px 12px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .shift-details span strong { color: var(--text); font-weight: 600; }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 14px;
+    border: 1px solid var(--border);
+  }
+  .stat-label {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .stat-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .stat-value.success { color: var(--success); }
+  .stat-value.warning { color: var(--warning); }
+  .stat-value.primary { color: var(--primary); }
+
+  .filter-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .filter-chip {
+    padding: 8px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--muted);
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .filter-chip.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+  .fab {
+    position: fixed;
+    bottom: 20px;
+    right: 50%;
+    transform: translateX(50%);
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    border: none;
+    font-size: 28px;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+    cursor: pointer;
+    z-index: 50;
+  }
+  @media (min-width: 640px) {
+    .fab { right: calc(50% - 280px); transform: none; }
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 100;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal {
+    background: var(--surface);
+    width: 100%;
+    max-width: 640px;
+    max-height: 90vh;
+    overflow-y: auto;
+    border-radius: 20px 20px 0 0;
+    padding: 20px;
+    animation: slideUp 0.3s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal h2 { font-size: 18px; margin-bottom: 16px; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 8px; }
+
+  .menu-dropdown {
+    position: absolute;
+    top: 56px;
+    right: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px;
+    z-index: 20;
+    display: none;
+    min-width: 200px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .menu-dropdown.show { display: block; }
+  .menu-dropdown button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 10px 12px;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 14px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .menu-dropdown button:hover { background: var(--surface-2); }
+
+  .month-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 8px;
+    border: 1px solid var(--border);
+  }
+  .month-nav button {
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 18px;
+    padding: 8px 14px;
+    cursor: pointer;
+    border-radius: 8px;
+  }
+  .month-nav button:active { background: var(--surface-2); }
+  .month-nav .month-label { font-weight: 600; font-size: 15px; }
+
+  .bar-chart { margin-top: 8px; }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 8px;
+    font-size: 12px;
+  }
+  .bar-label { width: 60px; color: var(--muted); }
+  .bar-track { flex: 1; height: 20px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; background: linear-gradient(90deg, var(--primary), #8b5cf6); border-radius: 4px; }
+  .bar-value { width: 70px; text-align: right; font-weight: 600; }
+
+  .toast {
+    position: fixed;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface-2);
+    color: var(--text);
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(4px); }
+  .toast.error { background: var(--danger); }
+  .toast.success { background: var(--success); }
+
+  .loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--surface-2);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div style="color: var(--muted); font-size: 14px;">Φόρτωση...</div>
+</div>
+
+<header>
+  <h1>💼 Work Tracker</h1>
+  <div class="header-right">
+    <div class="sync-indicator" id="syncIndicator" title="Συγχρονισμός"></div>
+    <button class="menu-btn" id="menuBtn">⋮</button>
+  </div>
+</header>
+
+<div class="menu-dropdown" id="menuDropdown">
+  <button onclick="exportData()">📤 Backup (κατέβασμα JSON)</button>
+  <button onclick="document.getElementById('importFile').click()">📥 Restore από backup</button>
+  <button onclick="reloadData()">🔄 Ανανέωση</button>
+  <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-view="shifts">📋 Βάρδιες</button>
+  <button class="tab" data-view="stats">📊 Στατιστικά</button>
+</div>
+
+<main>
+  <section class="view active" id="view-shifts">
+    <div class="month-nav">
+      <button id="prevMonth">‹</button>
+      <span class="month-label" id="currentMonth"></span>
+      <button id="nextMonth">›</button>
+    </div>
+    <div class="stats-grid" id="monthSummary"></div>
+    <div id="shiftsList"></div>
+  </section>
+
+  <section class="view" id="view-stats">
+    <div class="filter-row">
+      <button class="filter-chip active" data-period="month">Αυτός ο μήνας</button>
+      <button class="filter-chip" data-period="lastMonth">Προηγ. μήνας</button>
+      <button class="filter-chip" data-period="year">Φέτος</button>
+      <button class="filter-chip" data-period="all">Όλα</button>
+    </div>
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="card">
+      <h3 style="font-size: 15px; margin-bottom: 12px;">Έσοδα ανά ημέρα εβδομάδας</h3>
+      <div id="dayOfWeekChart"></div>
+    </div>
+    <div class="card">
+      <h3 style="font-size: 15px; margin-bottom: 12px;">Μέσοι όροι</h3>
+      <div id="averagesBlock"></div>
+    </div>
+  </section>
+</main>
+
+<button class="fab" id="addShiftBtn">+</button>
+
+<div class="modal-backdrop" id="shiftModal">
+  <div class="modal">
+    <h2 id="modalTitle">Νέα Βάρδια</h2>
+    <form id="shiftForm">
+      <input type="hidden" id="shiftId">
+      <div class="form-group">
+        <label>Ημερομηνία</label>
+        <input type="date" id="shiftDate" required>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Έναρξη</label>
+          <input type="time" id="shiftStart" required>
+        </div>
+        <div class="form-group">
+          <label>Λήξη</label>
+          <input type="time" id="shiftEnd" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Υπερωρίες (ώρες) — προαιρετικό</label>
+        <input type="number" id="shiftOvertime" step="0.25" min="0" placeholder="0">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Μεροκάματο (€)</label>
+          <input type="number" id="shiftWage" step="0.01" min="0" placeholder="0.00" required>
+        </div>
+        <div class="form-group">
+          <label>Τιπς (€)</label>
+          <input type="number" id="shiftTips" step="0.01" min="0" placeholder="0.00">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Σημειώσεις</label>
+        <textarea id="shiftNotes" rows="2" placeholder="προαιρετικό"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">Ακύρωση</button>
+        <button type="submit" class="btn" id="saveBtn">Αποθήκευση</button>
+      </div>
+      <div class="modal-actions" id="deleteRow" style="display:none">
+        <button type="button" class="btn btn-danger" onclick="deleteShift()">Διαγραφή βάρδιας</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'https://tsgnkgrkokyvlhldjysj.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_ZKWFiIqXU618EqdOv0iWfQ_aaMSEtoT';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const DAYS_GR = ['Κυρ', 'Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ'];
+const MONTHS_GR = ['Ιανουάριος','Φεβρουάριος','Μάρτιος','Απρίλιος','Μάιος','Ιούνιος','Ιούλιος','Αύγουστος','Σεπτέμβριος','Οκτώβριος','Νοέμβριος','Δεκέμβριος'];
+
+let shifts = [];
+let currentMonthDate = new Date();
+currentMonthDate.setDate(1);
+let statsPeriod = 'month';
+
+const $ = (id) => document.getElementById(id);
+
+function fmt(n) { return Number(n || 0).toFixed(2); }
+function fmtEur(n) { return '€' + fmt(n); }
+function fmtH(n) {
+  const h = Math.floor(n);
+  const m = Math.round((n - h) * 60);
+  return m === 0 ? h + 'ω' : h + 'ω ' + m + 'λ';
+}
+function calcHours(start, end) {
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  let mins = (eh * 60 + em) - (sh * 60 + sm);
+  if (mins < 0) mins += 24 * 60;
+  return mins / 60;
+}
+function shiftTotal(s) { return Number(s.wage || 0) + Number(s.tips || 0); }
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function setSync(state) {
+  const el = $('syncIndicator');
+  el.classList.remove('syncing', 'error');
+  if (state === 'syncing') el.classList.add('syncing');
+  if (state === 'error') el.classList.add('error');
+}
+
+let toastTimer;
+function toast(msg, type = '') {
+  const t = $('toast');
+  t.className = 'toast show ' + type;
+  t.textContent = msg;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = 'toast', 3000);
+}
+
+// ---- DATA: Supabase
+async function loadShifts() {
+  setSync('syncing');
+  const { data, error } = await supabase
+    .from('shifts')
+    .select('*')
+    .order('date', { ascending: false })
+    .order('start_time', { ascending: false });
+  if (error) {
+    setSync('error');
+    toast('Σφάλμα φόρτωσης: ' + error.message, 'error');
+    console.error(error);
+    return;
+  }
+  shifts = data.map(s => ({
+    id: s.id,
+    date: s.date,
+    start: s.start_time?.slice(0,5),
+    end: s.end_time?.slice(0,5),
+    overtime: Number(s.overtime || 0),
+    wage: Number(s.wage || 0),
+    tips: Number(s.tips || 0),
+    notes: s.notes || ''
+  }));
+  setSync('ok');
+}
+
+async function upsertShift(data) {
+  setSync('syncing');
+  const row = {
+    date: data.date,
+    start_time: data.start,
+    end_time: data.end,
+    overtime: data.overtime,
+    wage: data.wage,
+    tips: data.tips,
+    notes: data.notes
+  };
+  let resp;
+  if (data.id) {
+    resp = await supabase.from('shifts').update(row).eq('id', data.id).select().single();
+  } else {
+    resp = await supabase.from('shifts').insert(row).select().single();
+  }
+  if (resp.error) {
+    setSync('error');
+    toast('Σφάλμα αποθήκευσης: ' + resp.error.message, 'error');
+    return false;
+  }
+  setSync('ok');
+  return true;
+}
+
+async function deleteShiftById(id) {
+  setSync('syncing');
+  const { error } = await supabase.from('shifts').delete().eq('id', id);
+  if (error) {
+    setSync('error');
+    toast('Σφάλμα διαγραφής: ' + error.message, 'error');
+    return false;
+  }
+  setSync('ok');
+  return true;
+}
+
+// ---- TAB SWITCHING
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    tab.classList.add('active');
+    $('view-' + tab.dataset.view).classList.add('active');
+    if (tab.dataset.view === 'stats') renderStats();
+  });
+});
+
+// ---- MENU
+$('menuBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  $('menuDropdown').classList.toggle('show');
+});
+document.addEventListener('click', () => {
+  $('menuDropdown').classList.remove('show');
+});
+
+// ---- MONTH NAV
+$('prevMonth').onclick = () => {
+  currentMonthDate.setMonth(currentMonthDate.getMonth() - 1);
+  renderShifts();
+};
+$('nextMonth').onclick = () => {
+  currentMonthDate.setMonth(currentMonthDate.getMonth() + 1);
+  renderShifts();
+};
+
+// ---- ADD/EDIT SHIFT
+$('addShiftBtn').onclick = () => openModal();
+
+function openModal(shift) {
+  const f = $('shiftForm');
+  f.reset();
+  $('deleteRow').style.display = shift ? 'flex' : 'none';
+  $('modalTitle').textContent = shift ? 'Επεξεργασία Βάρδιας' : 'Νέα Βάρδια';
+  if (shift) {
+    $('shiftId').value = shift.id;
+    $('shiftDate').value = shift.date;
+    $('shiftStart').value = shift.start;
+    $('shiftEnd').value = shift.end;
+    $('shiftOvertime').value = shift.overtime || '';
+    $('shiftWage').value = shift.wage;
+    $('shiftTips').value = shift.tips || '';
+    $('shiftNotes').value = shift.notes || '';
+  } else {
+    $('shiftId').value = '';
+    $('shiftDate').value = new Date().toISOString().slice(0,10);
+  }
+  $('shiftModal').classList.add('show');
+}
+window.openModal = openModal;
+window.closeModal = () => $('shiftModal').classList.remove('show');
+
+$('shiftForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $('saveBtn');
+  btn.disabled = true;
+  btn.textContent = 'Αποθήκευση...';
+  const data = {
+    id: $('shiftId').value || null,
+    date: $('shiftDate').value,
+    start: $('shiftStart').value,
+    end: $('shiftEnd').value,
+    overtime: parseFloat($('shiftOvertime').value) || 0,
+    wage: parseFloat($('shiftWage').value) || 0,
+    tips: parseFloat($('shiftTips').value) || 0,
+    notes: $('shiftNotes').value.trim()
+  };
+  const ok = await upsertShift(data);
+  btn.disabled = false;
+  btn.textContent = 'Αποθήκευση';
+  if (ok) {
+    closeModal();
+    toast('Αποθηκεύτηκε ✓', 'success');
+    await loadShifts();
+    renderShifts();
+  }
+});
+
+window.deleteShift = async () => {
+  const id = $('shiftId').value;
+  if (!id) return;
+  if (!confirm('Διαγραφή αυτής της βάρδιας;')) return;
+  const ok = await deleteShiftById(id);
+  if (ok) {
+    closeModal();
+    toast('Διαγράφηκε', 'success');
+    await loadShifts();
+    renderShifts();
+  }
+};
+
+// ---- RENDER SHIFTS
+function renderShifts() {
+  const y = currentMonthDate.getFullYear();
+  const m = currentMonthDate.getMonth();
+  $('currentMonth').textContent = MONTHS_GR[m] + ' ' + y;
+
+  const monthShifts = shifts.filter(s => {
+    const d = new Date(s.date);
+    return d.getFullYear() === y && d.getMonth() === m;
+  });
+
+  const totalHours = monthShifts.reduce((acc, s) => acc + calcHours(s.start, s.end), 0);
+  const totalOvertime = monthShifts.reduce((acc, s) => acc + Number(s.overtime || 0), 0);
+  const totalWage = monthShifts.reduce((acc, s) => acc + Number(s.wage || 0), 0);
+  const totalTips = monthShifts.reduce((acc, s) => acc + Number(s.tips || 0), 0);
+
+  $('monthSummary').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Μεροκάματα</div>
+      <div class="stat-value success">${fmtEur(totalWage)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Τιπς</div>
+      <div class="stat-value warning">${fmtEur(totalTips)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Σύνολο</div>
+      <div class="stat-value primary">${fmtEur(totalWage + totalTips)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Ώρες (${monthShifts.length} βάρδιες)</div>
+      <div class="stat-value">${fmtH(totalHours)}${totalOvertime ? ' <span style="font-size:12px;color:var(--warning)">+' + fmtH(totalOvertime) + ' υπερ.</span>' : ''}</div>
+    </div>
+  `;
+
+  const list = $('shiftsList');
+  if (monthShifts.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="icon">📅</div><div>Δεν υπάρχουν βάρδιες αυτό τον μήνα.<br>Πάτα το <strong>+</strong> για να προσθέσεις.</div></div>`;
+    return;
+  }
+
+  list.innerHTML = monthShifts.map(s => {
+    const d = new Date(s.date);
+    const dayName = DAYS_GR[d.getDay()];
+    const dayNum = d.getDate();
+    const monthShort = MONTHS_GR[d.getMonth()].slice(0,3);
+    const hours = calcHours(s.start, s.end);
+    return `
+      <div class="shift-item" data-id="${s.id}">
+        <div class="shift-item-header">
+          <div class="shift-date">${dayNum} ${monthShort}<span class="shift-day">${dayName}</span></div>
+          <div class="shift-total">${fmtEur(shiftTotal(s))}</div>
+        </div>
+        <div class="shift-details">
+          <span>⏰ <strong>${s.start}–${s.end}</strong> (${fmtH(hours)})</span>
+          ${s.overtime ? `<span>⚡ Υπερ.: <strong>${fmtH(s.overtime)}</strong></span>` : '<span></span>'}
+          <span>💶 Μεροκάματο: <strong>${fmtEur(s.wage)}</strong></span>
+          <span>💰 Τιπς: <strong>${fmtEur(s.tips || 0)}</strong></span>
+          ${s.notes ? `<span style="grid-column: 1 / -1; margin-top:4px; font-style:italic">📝 ${escapeHtml(s.notes)}</span>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  list.querySelectorAll('.shift-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const s = shifts.find(x => x.id === el.dataset.id);
+      if (s) openModal(s);
+    });
+  });
+}
+
+// ---- STATS
+document.querySelectorAll('.filter-chip').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('.filter-chip').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    statsPeriod = c.dataset.period;
+    renderStats();
+  });
+});
+
+function getFiltered() {
+  const now = new Date();
+  return shifts.filter(s => {
+    const d = new Date(s.date);
+    if (statsPeriod === 'all') return true;
+    if (statsPeriod === 'year') return d.getFullYear() === now.getFullYear();
+    if (statsPeriod === 'month') return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    if (statsPeriod === 'lastMonth') {
+      const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      return d.getFullYear() === lm.getFullYear() && d.getMonth() === lm.getMonth();
+    }
+    return true;
+  });
+}
+
+function renderStats() {
+  const data = getFiltered();
+  const totalWage = data.reduce((a, s) => a + Number(s.wage || 0), 0);
+  const totalTips = data.reduce((a, s) => a + Number(s.tips || 0), 0);
+  const totalHours = data.reduce((a, s) => a + calcHours(s.start, s.end), 0);
+  const totalOvertime = data.reduce((a, s) => a + Number(s.overtime || 0), 0);
+  const total = totalWage + totalTips;
+
+  $('statsGrid').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Σύνολο εσόδων</div>
+      <div class="stat-value primary">${fmtEur(total)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Βάρδιες</div>
+      <div class="stat-value">${data.length}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Μεροκάματα</div>
+      <div class="stat-value success">${fmtEur(totalWage)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Τιπς</div>
+      <div class="stat-value warning">${fmtEur(totalTips)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Συνολικές ώρες</div>
+      <div class="stat-value">${fmtH(totalHours)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Υπερωρίες</div>
+      <div class="stat-value warning">${fmtH(totalOvertime)}</div>
+    </div>
+  `;
+
+  const avgPerShift = data.length ? total / data.length : 0;
+  const avgPerHour = totalHours ? total / totalHours : 0;
+  const avgTipsPerShift = data.length ? totalTips / data.length : 0;
+  const tipsPercent = totalWage ? (totalTips / totalWage * 100) : 0;
+
+  $('averagesBlock').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px;">
+      <div><div style="color:var(--muted)">Μέσος όρος/βάρδια</div><div style="font-weight:700;font-size:16px">${fmtEur(avgPerShift)}</div></div>
+      <div><div style="color:var(--muted)">Μέσος όρος/ώρα</div><div style="font-weight:700;font-size:16px">${fmtEur(avgPerHour)}</div></div>
+      <div><div style="color:var(--muted)">Τιπς/βάρδια</div><div style="font-weight:700;font-size:16px">${fmtEur(avgTipsPerShift)}</div></div>
+      <div><div style="color:var(--muted)">Τιπς ως % μεροκάματου</div><div style="font-weight:700;font-size:16px">${tipsPercent.toFixed(1)}%</div></div>
+    </div>
+  `;
+
+  const byDow = [0,0,0,0,0,0,0];
+  const countDow = [0,0,0,0,0,0,0];
+  data.forEach(s => {
+    const dow = new Date(s.date).getDay();
+    byDow[dow] += shiftTotal(s);
+    countDow[dow]++;
+  });
+  const max = Math.max(...byDow, 1);
+  const order = [1,2,3,4,5,6,0];
+  $('dayOfWeekChart').innerHTML = '<div class="bar-chart">' +
+    order.map(i => {
+      const v = byDow[i];
+      const pct = (v / max) * 100;
+      return `<div class="bar-row">
+        <div class="bar-label">${DAYS_GR[i]} (${countDow[i]})</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+        <div class="bar-value">${fmtEur(v)}</div>
+      </div>`;
+    }).join('') + '</div>';
+}
+
+// ---- BACKUP / RESTORE
+window.exportData = () => {
+  const blob = new Blob([JSON.stringify(shifts, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'work-tracker-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Backup ολοκληρώθηκε ✓', 'success');
+};
+
+window.importData = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!Array.isArray(data)) throw new Error('bad format');
+      if (!confirm('Να εισαχθούν ' + data.length + ' βάρδιες; (θα προστεθούν σε αυτές που υπάρχουν)')) return;
+      setSync('syncing');
+      const rows = data.map(s => ({
+        date: s.date,
+        start_time: s.start,
+        end_time: s.end,
+        overtime: Number(s.overtime || 0),
+        wage: Number(s.wage || 0),
+        tips: Number(s.tips || 0),
+        notes: s.notes || ''
+      }));
+      const { error } = await supabase.from('shifts').insert(rows);
+      if (error) {
+        setSync('error');
+        toast('Σφάλμα: ' + error.message, 'error');
+      } else {
+        setSync('ok');
+        toast('Εισήχθησαν ' + data.length + ' βάρδιες ✓', 'success');
+        await loadShifts();
+        renderShifts();
+      }
+    } catch (err) {
+      toast('Μη έγκυρο αρχείο', 'error');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+};
+
+window.reloadData = async () => {
+  await loadShifts();
+  renderShifts();
+  toast('Ανανεώθηκε ✓', 'success');
+};
+
+// ---- INIT
+(async () => {
+  await loadShifts();
+  renderShifts();
+  $('loadingOverlay').style.display = 'none';
+})();
+</script>
+</body>
+</html>
