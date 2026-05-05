@@ -202,6 +202,22 @@
     margin-bottom: 12px;
     overflow-x: auto;
     padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .filter-row::-webkit-scrollbar { display: none; }
+  .chip {
+    padding: 5px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .chip.chip-active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
   }
   .filter-chip {
     padding: 8px 14px;
@@ -217,6 +233,31 @@
     background: var(--primary);
     color: white;
     border-color: var(--primary);
+  }
+  .filter-month-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .filter-chip-month {
+    padding: 5px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .filter-chip-month.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+  }
+  .filter-chip-month.no-data {
+    opacity: 0.3;
+    cursor: default;
   }
 
   .empty-state {
@@ -481,20 +522,51 @@
   </section>
 
   <section class="view" id="view-stats">
-    <div class="filter-row">
-      <button class="filter-chip active" data-period="month">Αυτός ο μήνας</button>
-      <button class="filter-chip" data-period="lastMonth">Προηγ. μήνας</button>
-      <button class="filter-chip" data-period="year">Φέτος</button>
-      <button class="filter-chip" data-period="all">Όλα</button>
-    </div>
+    <div id="filterContainer"></div>
     <div class="stats-grid" id="statsGrid"></div>
     <div class="card">
-      <h3 style="font-size: 15px; margin-bottom: 12px;">Έσοδα ανά ημέρα εβδομάδας</h3>
+      <h3 style="font-size:15px;margin:0 0 12px;">Ανά ημέρα εβδομάδας</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;gap:6px;">
+          <button onclick="setDowMetric('income')" id="dmIncome" class="chip chip-active">Έσοδα</button>
+          <button onclick="setDowMetric('tips')" id="dmTips" class="chip">Τιπς</button>
+          <button onclick="setDowMetric('hours')" id="dmHours" class="chip">Ώρες</button>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;" onclick="toggleDowMode()">
+          <span style="font-size:12px;color:var(--muted);">Σύνολο</span>
+          <div style="position:relative;width:44px;height:24px;border-radius:12px;background:#3a3a4a;transition:background .2s;flex-shrink:0;" id="dowToggleTrack">
+            <div id="dowToggleThumb" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.4);"></div>
+          </div>
+          <span style="font-size:12px;color:var(--muted);">Μ.Ο./βάρδια</span>
+        </label>
+      </div>
       <div id="dayOfWeekChart"></div>
     </div>
     <div class="card">
-      <h3 style="font-size: 15px; margin-bottom: 12px;">Μέσοι όροι</h3>
-      <div id="averagesBlock"></div>
+      <h3 style="font-size:15px;margin:0 0 12px;">Ανά μήνα</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;gap:6px;">
+          <button onclick="setMonthMetric('income')" id="mmIncome" class="chip chip-active">Έσοδα</button>
+          <button onclick="setMonthMetric('tips')" id="mmTips" class="chip">Τιπς</button>
+          <button onclick="setMonthMetric('hours')" id="mmHours" class="chip">Ώρες</button>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;" onclick="toggleMonthMode()">
+          <span style="font-size:12px;color:var(--muted);">Σύνολο</span>
+          <div style="position:relative;width:44px;height:24px;border-radius:12px;background:#3a3a4a;transition:background .2s;flex-shrink:0;" id="monthToggleTrack">
+            <div id="monthToggleThumb" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.4);"></div>
+          </div>
+          <span style="font-size:12px;color:var(--muted);">Μ.Ο./βάρδια</span>
+        </label>
+      </div>
+      <div id="monthChart"></div>
+    </div>
+    <div class="card" id="highlightsCard">
+      <h3 style="font-size:15px;margin:0 0 14px;">🏆 Ρεκόρ & Highlights</h3>
+      <div id="highlightsBlock"></div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:15px;margin:0 0 14px;">📉 Χειρότερα</h3>
+      <div id="lowlightsBlock"></div>
     </div>
   </section>
 </main>
@@ -603,7 +675,12 @@ let shifts = [];
 let hourlyRate = 0;
 let currentMonthDate = new Date();
 currentMonthDate.setDate(1);
-let statsPeriod = 'month';
+let filterSelections = new Set(); // 'YYYY-M' keys, empty = all
+let expandedYear = null;
+let monthMode = 'total';   // 'total' | 'avg'
+let monthMetric = 'income'; // 'income' | 'tips' | 'hours'
+let dowMode = 'total';
+let dowMetric = 'income';
 
 const $ = (id) => document.getElementById(id);
 
@@ -742,7 +819,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     tab.classList.add('active');
     $('view-' + tab.dataset.view).classList.add('active');
-    if (tab.dataset.view === 'stats') renderStats();
+    if (tab.dataset.view === 'stats') { renderFilter(); renderStats(); }
   });
 });
 
@@ -1017,28 +1094,85 @@ function renderShifts() {
   });
 }
 
-// ---- STATS
-document.querySelectorAll('.filter-chip').forEach(c => {
-  c.addEventListener('click', () => {
-    document.querySelectorAll('.filter-chip').forEach(x => x.classList.remove('active'));
-    c.classList.add('active');
-    statsPeriod = c.dataset.period;
-    renderStats();
-  });
-});
+// ---- STATS FILTER
+function getAvailableYears() {
+  return [...new Set(shifts.map(s => new Date(s.date).getFullYear()))].sort((a, b) => b - a);
+}
+function getMonthsWithData(year) {
+  return new Set(shifts.filter(s => new Date(s.date).getFullYear() === year).map(s => new Date(s.date).getMonth()));
+}
+function isYearPartiallyActive(year) {
+  return [...filterSelections].some(k => k.startsWith(year + '-'));
+}
+function isYearFullyActive(year) {
+  const withData = getMonthsWithData(year);
+  return withData.size > 0 && [...withData].every(m => filterSelections.has(`${year}-${m}`));
+}
+
+function renderFilter() {
+  const container = $('filterContainer');
+  if (!container) return;
+  const years = getAvailableYears();
+  const MONTHS_SHORT = ['Ιαν','Φεβ','Μαρ','Απρ','Μαΐ','Ιούν','Ιούλ','Αύγ','Σεπ','Οκτ','Νοε','Δεκ'];
+
+  let html = `<div class="filter-row">`;
+  html += `<button class="filter-chip${filterSelections.size === 0 ? ' active' : ''}" onclick="clearFilter()">Όλα</button>`;
+  for (const y of years) {
+    const active = isYearPartiallyActive(y);
+    html += `<button class="filter-chip${active ? ' active' : ''}" onclick="toggleExpandYear(${y})">${y}</button>`;
+  }
+  html += `</div>`;
+
+  if (expandedYear !== null) {
+    const withData = getMonthsWithData(expandedYear);
+    html += `<div class="filter-month-row">`;
+    html += `<button class="filter-chip-month${isYearFullyActive(expandedYear) ? ' active' : ''}" onclick="toggleWholeYear(${expandedYear})">Όλος</button>`;
+    for (let m = 0; m < 12; m++) {
+      const hasData = withData.has(m);
+      const isActive = filterSelections.has(`${expandedYear}-${m}`);
+      html += `<button class="filter-chip-month${isActive ? ' active' : ''}${!hasData ? ' no-data' : ''}" ${hasData ? `onclick="toggleMonth(${expandedYear},${m})"` : 'disabled'}>${MONTHS_SHORT[m]}</button>`;
+    }
+    html += `</div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+window.clearFilter = function() {
+  filterSelections.clear();
+  expandedYear = null;
+  renderFilter(); renderStats();
+};
+window.toggleExpandYear = function(year) {
+  if (isYearPartiallyActive(year)) {
+    [...filterSelections].filter(k => k.startsWith(year + '-')).forEach(k => filterSelections.delete(k));
+    if (expandedYear === year) expandedYear = null;
+  } else {
+    expandedYear = year;
+    getMonthsWithData(year).forEach(m => filterSelections.add(`${year}-${m}`));
+  }
+  renderFilter(); renderStats();
+};
+window.toggleWholeYear = function(year) {
+  if (isYearFullyActive(year)) {
+    [...filterSelections].filter(k => k.startsWith(year + '-')).forEach(k => filterSelections.delete(k));
+  } else {
+    getMonthsWithData(year).forEach(m => filterSelections.add(`${year}-${m}`));
+  }
+  renderFilter(); renderStats();
+};
+window.toggleMonth = function(year, month) {
+  const key = `${year}-${month}`;
+  if (filterSelections.has(key)) filterSelections.delete(key);
+  else filterSelections.add(key);
+  renderFilter(); renderStats();
+};
 
 function getFiltered() {
-  const now = new Date();
+  if (filterSelections.size === 0) return shifts;
   return shifts.filter(s => {
     const d = new Date(s.date);
-    if (statsPeriod === 'all') return true;
-    if (statsPeriod === 'year') return d.getFullYear() === now.getFullYear();
-    if (statsPeriod === 'month') return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-    if (statsPeriod === 'lastMonth') {
-      const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      return d.getFullYear() === lm.getFullYear() && d.getMonth() === lm.getMonth();
-    }
-    return true;
+    return filterSelections.has(`${d.getFullYear()}-${d.getMonth()}`);
   });
 }
 
@@ -1051,29 +1185,19 @@ function renderStats() {
   const total = totalWage + totalTips;
 
   $('statsGrid').innerHTML = `
-    <div class="stat-card">
-      <div class="stat-label">Σύνολο εσόδων</div>
+    <div class="stat-card" style="grid-column:1/-1">
+      <div class="stat-label">Σύνολο χρημάτων</div>
       <div class="stat-value primary">${fmtEur(total)}</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px">(εκ των οποίων <span style="color:var(--warning)">${fmtEur(totalTips)}</span> τιπς)</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Βάρδιες</div>
+      <div class="stat-label">Μέρες εργασίας</div>
       <div class="stat-value">${data.length}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Μεροκάματα</div>
-      <div class="stat-value success">${fmtEur(totalWage)}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Τιπς</div>
-      <div class="stat-value warning">${fmtEur(totalTips)}</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Συνολικές ώρες</div>
       <div class="stat-value">${fmtH(totalHours)}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Υπερωρίες</div>
-      <div class="stat-value warning">${fmtH(totalOvertime)}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">(εκ των οποίων <span style="color:var(--warning)">${fmtH(totalOvertime)}</span> υπερωρίες)</div>
     </div>
   `;
 
@@ -1082,34 +1206,246 @@ function renderStats() {
   const avgTipsPerShift = data.length ? totalTips / data.length : 0;
   const tipsPercent = totalWage ? (totalTips / totalWage * 100) : 0;
 
-  $('averagesBlock').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px;">
-      <div><div style="color:var(--muted)">Μέσος όρος/βάρδια</div><div style="font-weight:700;font-size:16px">${fmtEur(avgPerShift)}</div></div>
-      <div><div style="color:var(--muted)">Μέσος όρος/ώρα</div><div style="font-weight:700;font-size:16px">${fmtEur(avgPerHour)}</div></div>
-      <div><div style="color:var(--muted)">Τιπς/βάρδια</div><div style="font-weight:700;font-size:16px">${fmtEur(avgTipsPerShift)}</div></div>
-      <div><div style="color:var(--muted)">Τιπς ως % μεροκάματου</div><div style="font-weight:700;font-size:16px">${tipsPercent.toFixed(1)}%</div></div>
-    </div>
-  `;
 
   const byDow = [0,0,0,0,0,0,0];
+  const byDowTips = [0,0,0,0,0,0,0];
+  const byDowHours = [0,0,0,0,0,0,0];
   const countDow = [0,0,0,0,0,0,0];
   data.forEach(s => {
     const dow = new Date(s.date).getDay();
     byDow[dow] += shiftTotal(s);
+    byDowTips[dow] += Number(s.tips || 0);
+    byDowHours[dow] += calcHours(s.start, s.end);
     countDow[dow]++;
   });
-  const max = Math.max(...byDow, 1);
+  const dowMetricArr = dowMetric === 'tips' ? byDowTips : dowMetric === 'hours' ? byDowHours : byDow;
+  const dowIsEur = dowMetric !== 'hours';
+  const dowFmtVal = v => dowIsEur ? fmtEur(v) : v.toFixed(1) + 'h';
   const order = [1,2,3,4,5,6,0];
-  $('dayOfWeekChart').innerHTML = '<div class="bar-chart">' +
-    order.map(i => {
-      const v = byDow[i];
+  const dowVals = order.map(i => dowMode === 'avg' && countDow[i] > 0 ? dowMetricArr[i] / countDow[i] : dowMetricArr[i]);
+  const max = Math.max(...dowVals, 1);
+
+  const dowGrandTotal = order.reduce((s, i) => s + dowMetricArr[i], 0);
+  const dowTotalShifts = order.reduce((s, i) => s + countDow[i], 0);
+  const dowSummaryVal = dowMode === 'avg' ? dowGrandTotal / (dowTotalShifts || 1) : dowGrandTotal;
+  const dowSummaryLabel = dowMode === 'avg' ? 'Μ.Ο. ανά βάρδια' : 'Σύνολο';
+
+  $('dayOfWeekChart').innerHTML =
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 12px;border-bottom:1px solid var(--border);margin-bottom:10px;">
+      <span style="font-size:13px;color:var(--muted);">${dowSummaryLabel}</span>
+      <span style="font-size:16px;font-weight:600;color:var(--primary);">${dowFmtVal(dowSummaryVal)}</span>
+    </div>
+    <div class="bar-chart">` +
+    order.map((i, idx) => {
+      const v = dowVals[idx];
       const pct = (v / max) * 100;
       return `<div class="bar-row">
         <div class="bar-label">${DAYS_GR[i]} (${countDow[i]})</div>
         <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
-        <div class="bar-value">${fmtEur(v)}</div>
+        <div class="bar-value">${dowFmtVal(v)}</div>
       </div>`;
     }).join('') + '</div>';
+
+  const MONTHS_SHORT = ['Ιαν','Φεβ','Μαρ','Απρ','Μαΐ','Ιούν','Ιούλ','Αύγ','Σεπ','Οκτ','Νοε','Δεκ'];
+  const byMonth = new Array(12).fill(0);
+  const byMonthTips = new Array(12).fill(0);
+  const byMonthHours = new Array(12).fill(0);
+  const countMonth = new Array(12).fill(0);
+  data.forEach(s => {
+    const m = new Date(s.date).getMonth();
+    byMonth[m] += shiftTotal(s);
+    byMonthTips[m] += Number(s.tips || 0);
+    byMonthHours[m] += calcHours(s.start, s.end);
+    countMonth[m]++;
+  });
+  const metricArr = monthMetric === 'tips' ? byMonthTips : monthMetric === 'hours' ? byMonthHours : byMonth;
+  const isEur = monthMetric !== 'hours';
+  const activeMonths = MONTHS_SHORT.map((_, i) => i).filter(i => countMonth[i] > 0);
+  const vals = activeMonths.map(i => monthMode === 'avg' ? metricArr[i] / countMonth[i] : metricArr[i]);
+  const maxMonth = Math.max(...vals, 1);
+  const fmtVal = v => isEur ? fmtEur(v) : v.toFixed(1) + 'h';
+
+  const grandTotal = activeMonths.reduce((s, i) => s + metricArr[i], 0);
+  const totalShifts = activeMonths.reduce((s, i) => s + countMonth[i], 0);
+  const summaryVal = monthMode === 'avg' ? grandTotal / (totalShifts || 1) : grandTotal;
+  const summaryLabel = monthMode === 'avg' ? 'Μ.Ο. ανά βάρδια' : 'Σύνολο';
+
+  $('monthChart').innerHTML = activeMonths.length === 0
+    ? '<div style="color:var(--muted);font-size:13px">Δεν υπάρχουν δεδομένα</div>'
+    : `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 12px;border-bottom:1px solid var(--border);margin-bottom:10px;">
+        <span style="font-size:13px;color:var(--muted);">${summaryLabel}</span>
+        <span style="font-size:16px;font-weight:600;color:var(--primary);">${fmtVal(summaryVal)}</span>
+      </div>
+      <div class="bar-chart">` + activeMonths.map((i, idx) => {
+        const v = vals[idx];
+        const pct = (v / maxMonth) * 100;
+        return `<div class="bar-row">
+          <div class="bar-label">${MONTHS_SHORT[i]} (${countMonth[i]})</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+          <div class="bar-value">${fmtVal(v)}</div>
+        </div>`;
+      }).join('') + '</div>';
+
+  // ---- HIGHLIGHTS
+  if (data.length === 0) { $('highlightsBlock').innerHTML = '<div style="color:var(--muted);font-size:13px">Δεν υπάρχουν δεδομένα</div>'; return; }
+
+  const MONTHS_GR_SHORT2 = ['Ιαν','Φεβ','Μαρ','Απρ','Μαΐ','Ιούν','Ιούλ','Αύγ','Σεπ','Οκτ','Νοε','Δεκ'];
+  const fmtDate = d => { const dt = new Date(d); return `${dt.getDate()} ${MONTHS_GR_SHORT2[dt.getMonth()]} ${dt.getFullYear()}`; };
+  const getMonday = d => { const day = d.getDay() || 7; const mon = new Date(d); mon.setDate(d.getDate() - day + 1); return mon.toISOString().slice(0,10); };
+  const weekRange = key => { const e = new Date(key); e.setDate(e.getDate()+6); return `${fmtDate(key)} – ${fmtDate(e.toISOString().slice(0,10))}`; };
+
+  // Compute maps
+  const weekMap = {}, weekTipsMap = {}, monthMap = {}, monthTipsMap = {};
+  data.forEach(s => {
+    const d = new Date(s.date);
+    const wk = getMonday(d);
+    const mk = `${d.getFullYear()}-${d.getMonth()}`;
+    weekMap[wk] = (weekMap[wk]||0) + shiftTotal(s);
+    weekTipsMap[wk] = (weekTipsMap[wk]||0) + Number(s.tips||0);
+    monthMap[mk] = (monthMap[mk]||0) + shiftTotal(s);
+    monthTipsMap[mk] = (monthTipsMap[mk]||0) + Number(s.tips||0);
+  });
+
+  const withTips = data.filter(s => Number(s.tips||0) > 0);
+  const weekTipsEntries  = Object.entries(weekTipsMap).filter(([,v]) => v > 0);
+  const monthTipsEntries = Object.entries(monthTipsMap).filter(([,v]) => v > 0);
+
+  const top5shifts   = [...data].sort((a,b) => shiftTotal(b)-shiftTotal(a)).slice(0,5);
+  const top5tips     = [...withTips].sort((a,b) => Number(b.tips||0)-Number(a.tips||0)).slice(0,5);
+  const top5weeks    = Object.entries(weekMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const top5weekTips = [...weekTipsEntries].sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const top5months   = Object.entries(monthMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const top5longest  = [...data].sort((a,b)=>calcHours(b.start,b.end)-calcHours(a.start,a.end)).slice(0,5);
+
+  const top5List = (items, labelFn, valueFn) =>
+    `<div style="margin-top:8px;padding:8px 0 4px;border-top:1px solid var(--border);">` +
+    items.map((item,i) => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;color:${i===0?'var(--primary)':'var(--text)'};">
+      <span>${i+1}. ${labelFn(item)}</span><span style="font-weight:600;">${valueFn(item)}</span>
+    </div>`).join('') + `</div>`;
+
+  const hlRow = (id, icon, label, value, sub, top5Html) => `
+    <div style="border-bottom:1px solid var(--border);">
+      <div onclick="toggleHL('${id}')" style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;cursor:pointer;">
+        <div>
+          <div style="font-size:13px;color:var(--muted);">${icon} ${label}</div>
+          ${sub ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;">${sub}</div>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-weight:700;font-size:15px;">${value}</span>
+          <span id="hl-arrow-${id}" style="color:var(--muted);font-size:11px;">▼</span>
+        </div>
+      </div>
+      <div id="hl-drop-${id}" style="display:none;">${top5Html}</div>
+    </div>`;
+
+  const monthLabel = key => { const [y,m] = key.split('-').map(Number); return `${MONTHS_GR_SHORT2[m]} ${y}`; };
+
+  $('highlightsBlock').innerHTML = [
+    hlRow('bestShift',   '💰', 'Καλύτερη βάρδια',       fmtEur(shiftTotal(top5shifts[0])),        fmtDate(top5shifts[0].date),
+      top5List(top5shifts, s=>fmtDate(s.date), s=>fmtEur(shiftTotal(s)))),
+    hlRow('bestTip',     '🎉', 'Μεγαλύτερο τιπ',         fmtEur(Number(top5tips[0].tips||0)),       fmtDate(top5tips[0].date),
+      top5List(top5tips, s=>fmtDate(s.date), s=>fmtEur(Number(s.tips||0)))),
+    hlRow('bestWeek',    '📅', 'Καλύτερη εβδομάδα (κέρδη)', fmtEur(top5weeks[0][1]),             weekRange(top5weeks[0][0]),
+      top5List(top5weeks, ([k])=>weekRange(k), ([,v])=>fmtEur(v))),
+    hlRow('bestWeekTips','🎊', 'Καλύτερη εβδομάδα (τιπς)',  fmtEur(top5weekTips[0][1]),           weekRange(top5weekTips[0][0]),
+      top5List(top5weekTips, ([k])=>weekRange(k), ([,v])=>fmtEur(v))),
+    hlRow('bestMonth',   '📆', 'Καλύτερος μήνας (κέρδη)',   fmtEur(top5months[0][1]),             monthLabel(top5months[0][0]),
+      top5List(top5months, ([k])=>monthLabel(k), ([,v])=>fmtEur(v))),
+    hlRow('longest',     '⏱️', 'Μεγαλύτερη βάρδια',         `${calcHours(top5longest[0].start,top5longest[0].end).toFixed(1)}h`, fmtDate(top5longest[0].date),
+      top5List(top5longest, s=>fmtDate(s.date), s=>`${calcHours(s.start,s.end).toFixed(1)}h`)),
+  ].join('');
+
+  // ---- LOWLIGHTS (bottom 5)
+  const bot5shifts   = [...data].sort((a,b) => shiftTotal(a)-shiftTotal(b)).slice(0,5);
+  const bot5tips     = [...withTips].sort((a,b) => Number(a.tips||0)-Number(b.tips||0)).slice(0,5);
+  const bot5weeks    = Object.entries(weekMap).sort((a,b)=>a[1]-b[1]).slice(0,5);
+  const bot5weekTips = [...weekTipsEntries].sort((a,b)=>a[1]-b[1]).slice(0,5);
+  const bot5months   = Object.entries(monthMap).sort((a,b)=>a[1]-b[1]).slice(0,5);
+  const bot5shortest = [...data].sort((a,b)=>calcHours(a.start,a.end)-calcHours(b.start,b.end)).slice(0,5);
+
+  const bot5List = (items, labelFn, valueFn) =>
+    `<div style="margin-top:8px;padding:8px 0 4px;border-top:1px solid var(--border);">` +
+    items.map((item,i) => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;color:${i===0?'#e57373':'var(--text)'};">
+      <span>${i+1}. ${labelFn(item)}</span><span style="font-weight:600;">${valueFn(item)}</span>
+    </div>`).join('') + `</div>`;
+
+  const llRow = (id, icon, label, value, sub, bot5Html) => `
+    <div style="border-bottom:1px solid var(--border);">
+      <div onclick="toggleHL('ll${id}')" style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;cursor:pointer;">
+        <div>
+          <div style="font-size:13px;color:var(--muted);">${icon} ${label}</div>
+          ${sub ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;">${sub}</div>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-weight:700;font-size:15px;">${value}</span>
+          <span id="hl-arrow-ll${id}" style="color:var(--muted);font-size:11px;">▼</span>
+        </div>
+      </div>
+      <div id="hl-drop-ll${id}" style="display:none;">${bot5Html}</div>
+    </div>`;
+
+  $('lowlightsBlock').innerHTML = [
+    llRow('bestShift',    '💸', 'Χειρότερη βάρδια',         fmtEur(shiftTotal(bot5shifts[0])),                fmtDate(bot5shifts[0].date),
+      bot5List(bot5shifts, s=>fmtDate(s.date), s=>fmtEur(shiftTotal(s)))),
+    llRow('bestTip',      '😔', 'Μικρότερο τιπ',             fmtEur(Number(bot5tips[0]?.tips||0)),             bot5tips[0] ? fmtDate(bot5tips[0].date) : '',
+      bot5List(bot5tips, s=>fmtDate(s.date), s=>fmtEur(Number(s.tips||0)))),
+    llRow('bestWeek',     '📅', 'Χειρότερη εβδομάδα (κέρδη)', fmtEur(bot5weeks[0][1]),                       weekRange(bot5weeks[0][0]),
+      bot5List(bot5weeks, ([k])=>weekRange(k), ([,v])=>fmtEur(v))),
+    llRow('bestWeekTips', '🎊', 'Χειρότερη εβδομάδα (τιπς)',  fmtEur(bot5weekTips[0][1]),                    weekRange(bot5weekTips[0][0]),
+      bot5List(bot5weekTips, ([k])=>weekRange(k), ([,v])=>fmtEur(v))),
+    llRow('bestMonth',    '📆', 'Χειρότερος μήνας (κέρδη)',   fmtEur(bot5months[0][1]),                       monthLabel(bot5months[0][0]),
+      bot5List(bot5months, ([k])=>monthLabel(k), ([,v])=>fmtEur(v))),
+    llRow('longest',      '⏱️', 'Μικρότερη βάρδια',           `${calcHours(bot5shortest[0].start,bot5shortest[0].end).toFixed(1)}h`, fmtDate(bot5shortest[0].date),
+      bot5List(bot5shortest, s=>fmtDate(s.date), s=>`${calcHours(s.start,s.end).toFixed(1)}h`)),
+  ].join('');
+}
+
+function toggleHL(id) {
+  const drop = $('hl-drop-' + id);
+  const arrow = $('hl-arrow-' + id);
+  const open = drop.style.display === 'none';
+  drop.style.display = open ? 'block' : 'none';
+  arrow.textContent = open ? '▲' : '▼';
+}
+window.toggleHL = toggleHL;
+
+function toggleMonthMode() { setMonthMode(monthMode === 'total' ? 'avg' : 'total'); }
+window.toggleMonthMode = toggleMonthMode;
+
+function toggleDowMode() {
+  dowMode = dowMode === 'total' ? 'avg' : 'total';
+  const active = dowMode === 'avg';
+  $('dowToggleTrack').style.background = active ? 'var(--primary)' : '#3a3a4a';
+  $('dowToggleThumb').style.left = active ? '23px' : '3px';
+  renderStats();
+}
+window.toggleDowMode = toggleDowMode;
+
+function setDowMetric(metric) {
+  dowMetric = metric;
+  ['income','tips','hours'].forEach(m => {
+    const btn = $('dm' + m.charAt(0).toUpperCase() + m.slice(1));
+    if (btn) btn.className = 'chip' + (m === metric ? ' chip-active' : '');
+  });
+  renderStats();
+}
+window.setDowMetric = setDowMetric;
+
+function setMonthMetric(metric) {
+  monthMetric = metric;
+  ['income','tips','hours'].forEach(m => {
+    const btn = $('mm' + m.charAt(0).toUpperCase() + m.slice(1));
+    if (btn) { btn.className = 'chip' + (m === metric ? ' chip-active' : ''); }
+  });
+  renderStats();
+}
+window.setMonthMetric = setMonthMetric;
+function setMonthMode(mode) {
+  monthMode = mode;
+  const active = mode === 'avg';
+  $('monthToggleTrack').style.background = active ? 'var(--primary)' : '#3a3a4a';
+  $('monthToggleThumb').style.left = active ? '23px' : '3px';
+  renderStats();
 }
 
 // ---- BACKUP / RESTORE
