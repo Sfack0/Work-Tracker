@@ -205,6 +205,7 @@
     scrollbar-width: none;
   }
   .filter-row::-webkit-scrollbar { display: none; }
+  #cmpGrid::-webkit-scrollbar { display: none; }
   .chip {
     padding: 5px 12px;
     background: var(--surface);
@@ -217,6 +218,11 @@
   .chip.chip-active {
     background: var(--primary);
     color: #fff;
+    border-color: var(--primary);
+  }
+  .chip.chip-partial {
+    background: transparent;
+    color: var(--primary);
     border-color: var(--primary);
   }
   .filter-chip {
@@ -490,7 +496,7 @@
 </div>
 
 <header>
-  <h1>💼 Work Tracker</h1>
+  <h1>Μαρακι Παπαδακι</h1>
   <div class="header-right">
     <div class="sync-indicator" id="syncIndicator" title="Συγχρονισμός"></div>
     <button class="menu-btn" id="menuBtn">⋮</button>
@@ -508,6 +514,7 @@
 <div class="tabs">
   <button class="tab active" data-view="shifts">📋 Βάρδιες</button>
   <button class="tab" data-view="stats">📊 Στατιστικά</button>
+  <button class="tab" data-view="compare">⚖️ Σύγκριση</button>
 </div>
 
 <main>
@@ -568,6 +575,22 @@
       <h3 style="font-size:15px;margin:0 0 14px;">📉 Χειρότερα</h3>
       <div id="lowlightsBlock"></div>
     </div>
+  </section>
+
+  <section class="view" id="view-compare">
+    <div class="card">
+      <div style="display:flex;gap:10px;margin-bottom:6px;">
+        <button id="cmpPanelABtn" onclick="setCmpPanel('A')" style="flex:1;padding:10px;border-radius:10px;border:2px solid #6c8ebf;background:#6c8ebf22;color:#6c8ebf;font-weight:600;font-size:14px;cursor:pointer;">Περίοδος Α</button>
+        <button id="cmpPanelBBtn" onclick="setCmpPanel('B')" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);background:transparent;color:var(--muted);font-weight:600;font-size:14px;cursor:pointer;">Περίοδος Β</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:10px;" id="cmpSelLabel">Επιλέγεις για: <strong>Περίοδος Α</strong></div>
+      <div id="cmpGrid" style="overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;"></div>
+      <div style="display:flex;gap:8px;margin-top:12px;justify-content:center;">
+        <button onclick="cmpClearPanel('A')" style="font-size:12px;padding:4px 12px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">Καθαρισμός Α</button>
+        <button onclick="cmpClearPanel('B')" style="font-size:12px;padding:4px 12px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">Καθαρισμός Β</button>
+      </div>
+    </div>
+    <div class="card" id="compareResult"></div>
   </section>
 </main>
 
@@ -682,6 +705,11 @@ let monthMetric = 'income'; // 'income' | 'tips' | 'hours'
 let dowMode = 'total';
 let dowMetric = 'income';
 
+// Compare state: sets of 'YYYY-M' keys
+let cmpA = new Set();
+let cmpB = new Set();
+let activeCmpPanel = null; // 'A' | 'B'
+
 const $ = (id) => document.getElementById(id);
 
 function fmt(n) { return Number(n || 0).toFixed(2); }
@@ -742,10 +770,9 @@ async function saveHourlyRate(rate) {
   return true;
 }
 
-function calcWage(start, end, overtime) {
+function calcWage(start, end) {
   if (!start || !end) return 0;
-  const regular = calcHours(start, end);
-  return (regular + Number(overtime || 0)) * hourlyRate;
+  return calcHours(start, end) * hourlyRate;
 }
 
 async function loadShifts() {
@@ -820,6 +847,8 @@ document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.add('active');
     $('view-' + tab.dataset.view).classList.add('active');
     if (tab.dataset.view === 'stats') { renderFilter(); renderStats(); }
+    if (tab.dataset.view === 'compare') { renderCompare(); }
+    $('addShiftBtn').style.display = tab.dataset.view === 'shifts' ? '' : 'none';
   });
 });
 
@@ -849,7 +878,7 @@ function updateWagePreview() {
   const start = $('shiftStart').value;
   const end = $('shiftEnd').value;
   const overtime = parseFloat($('shiftOvertime').value) || 0;
-  const wage = calcWage(start, end, overtime);
+  const wage = calcWage(start, end);
   $('wagePreviewValue').textContent = fmtEur(wage);
 }
 
@@ -994,7 +1023,7 @@ $('shiftForm').addEventListener('submit', async (e) => {
     start,
     end,
     overtime,
-    wage: calcWage(start, end, overtime),
+    wage: calcWage(start, end),
     tips: parseFloat($('shiftTips').value) || 0,
     notes: $('shiftNotes').value.trim()
   };
@@ -1078,7 +1107,7 @@ function renderShifts() {
         <div class="shift-details">
           <span>⏰ <strong>${s.start}–${s.end}</strong> (${fmtH(hours)})</span>
           ${s.overtime ? `<span>⚡ Υπερ.: <strong>${fmtH(s.overtime)}</strong></span>` : '<span></span>'}
-          <span>💶 Μεροκάματο: <strong>${fmtEur(s.wage)}</strong></span>
+          <span>💶 Μισθός: <strong>${fmtEur(s.wage)}</strong></span>
           <span>💰 Τιπς: <strong>${fmtEur(s.tips || 0)}</strong></span>
           ${s.notes ? `<span style="grid-column: 1 / -1; margin-top:4px; font-style:italic">📝 ${escapeHtml(s.notes)}</span>` : ''}
         </div>
@@ -1183,9 +1212,10 @@ function renderStats() {
   const totalHours = data.reduce((a, s) => a + calcHours(s.start, s.end), 0);
   const totalOvertime = data.reduce((a, s) => a + Number(s.overtime || 0), 0);
   const total = totalWage + totalTips;
+  const totalMonths = new Set(data.map(s => s.date.slice(0, 7))).size;
 
   $('statsGrid').innerHTML = `
-    <div class="stat-card" style="grid-column:1/-1">
+    <div class="stat-card">
       <div class="stat-label">Σύνολο χρημάτων</div>
       <div class="stat-value primary">${fmtEur(total)}</div>
       <div style="font-size:13px;color:var(--muted);margin-top:4px">(εκ των οποίων <span style="color:var(--warning)">${fmtEur(totalTips)}</span> τιπς)</div>
@@ -1195,9 +1225,13 @@ function renderStats() {
       <div class="stat-value">${data.length}</div>
     </div>
     <div class="stat-card">
+      <div class="stat-label">Μήνες εργασίας</div>
+      <div class="stat-value">${totalMonths}</div>
+    </div>
+    <div class="stat-card">
       <div class="stat-label">Συνολικές ώρες</div>
       <div class="stat-value">${fmtH(totalHours)}</div>
-      <div style="font-size:12px;color:var(--muted);margin-top:4px">(εκ των οποίων <span style="color:var(--warning)">${fmtH(totalOvertime)}</span> υπερωρίες)</div>
+      ${totalOvertime ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">(εκ των οποίων <span style="color:var(--warning)">${fmtH(totalOvertime)}</span> υπερ.)</div>` : ''}
     </div>
   `;
 
@@ -1399,6 +1433,184 @@ function renderStats() {
       bot5List(bot5shortest, s=>fmtDate(s.date), s=>`${calcHours(s.start,s.end).toFixed(1)}h`)),
   ].join('');
 }
+
+// ---- COMPARE
+let activeCmpPanelSel = 'A';
+
+function getYearsWithData() {
+  const yrs = new Set(shifts.map(s => new Date(s.date).getFullYear()));
+  return [...yrs].sort((a,b) => b-a);
+}
+function getMonthsWithDataForYear(y) {
+  return [...new Set(shifts.filter(s=>new Date(s.date).getFullYear()===y).map(s=>new Date(s.date).getMonth()))].sort((a,b)=>a-b);
+}
+
+function setCmpPanel(panel) {
+  activeCmpPanelSel = panel;
+  const btnA = $('cmpPanelABtn'), btnB = $('cmpPanelBBtn');
+  btnA.style.borderColor = panel==='A' ? '#6c8ebf' : 'var(--border)';
+  btnA.style.background  = panel==='A' ? '#6c8ebf22' : 'transparent';
+  btnA.style.color       = panel==='A' ? '#6c8ebf' : 'var(--muted)';
+  btnB.style.borderColor = panel==='B' ? '#82b366' : 'var(--border)';
+  btnB.style.background  = panel==='B' ? '#82b36622' : 'transparent';
+  btnB.style.color       = panel==='B' ? '#82b366' : 'var(--muted)';
+  $('cmpSelLabel').innerHTML = `Επιλέγεις για: <strong>Περίοδος ${panel}</strong>`;
+  renderCmpGrid();
+}
+window.setCmpPanel = setCmpPanel;
+
+function cmpClearPanel(panel) {
+  if (panel==='A') cmpA.clear(); else cmpB.clear();
+  renderCompare();
+}
+window.cmpClearPanel = cmpClearPanel;
+
+function renderCompare() {
+  setCmpPanel(activeCmpPanelSel);
+  renderCompareResult();
+}
+window.renderCompare = renderCompare;
+
+function renderCmpGrid() {
+  const MO = ['Ιαν','Φεβ','Μαρ','Απρ','Μαΐ','Ιούν','Ιούλ','Αύγ','Σεπ','Οκτ','Νοε','Δεκ'];
+  const years = getYearsWithData();
+  const colW = '34px';
+  const cellStyle = (hasData, selA, selB) => {
+    let bg = 'transparent', color = '#444', border = '1px solid var(--border)';
+    if (!hasData) { bg='transparent'; color='#333'; border='1px solid #2a2a2a'; }
+    else if (selA && selB) { bg='linear-gradient(135deg,#6c8ebf 50%,#82b366 50%)'; color='#fff'; border='none'; }
+    else if (selA) { bg='#6c8ebf'; color='#fff'; border='none'; }
+    else if (selB) { bg='#82b366'; color='#fff'; border='none'; }
+    return `background:${bg};color:${color};border:${border};`;
+  };
+
+  let html = `<table style="border-collapse:separate;border-spacing:4px;width:100%;font-size:12px;">
+    <tr><th style="text-align:left;padding:2px 4px;color:var(--muted);font-weight:400;width:44px;"></th>`;
+  MO.forEach(m => { html += `<th style="text-align:center;color:var(--muted);font-weight:400;width:${colW};font-size:11px;">${m}</th>`; });
+  html += '</tr>';
+
+  years.forEach(y => {
+    const hasDataMonths = new Set(getMonthsWithDataForYear(y));
+    const allA = [...hasDataMonths].every(m=>cmpA.has(`${y}-${m}`));
+    const allB = [...hasDataMonths].every(m=>cmpB.has(`${y}-${m}`));
+    const ySelA = allA && hasDataMonths.size>0;
+    const ySelB = allB && hasDataMonths.size>0;
+    const yBg = ySelA&&ySelB?'linear-gradient(135deg,#6c8ebf 50%,#82b366 50%)':ySelA?'#6c8ebf':ySelB?'#82b366':'var(--surface)';
+    const yColor = (ySelA||ySelB)?'#fff':'var(--muted)';
+    html += `<tr>
+      <td><button onclick="cmpToggleYear(${y})" style="width:42px;padding:5px 2px;border-radius:8px;border:1px solid var(--border);background:${yBg};color:${yColor};font-weight:600;font-size:12px;cursor:pointer;">${y}</button></td>`;
+    for (let m=0; m<12; m++) {
+      const key = `${y}-${m}`;
+      const has = hasDataMonths.has(m);
+      const sA = cmpA.has(key), sB = cmpB.has(key);
+      const st = cellStyle(has, sA, sB);
+      html += `<td style="text-align:center;">
+        <button onclick="${has?`cmpToggleCell('${key}')`:'void 0'}" style="width:${colW};height:28px;border-radius:6px;font-size:11px;cursor:${has?'pointer':'default'};${st}${!has?'opacity:0.2;':''}">
+          ${has ? MO[m].slice(0,1) : '·'}
+        </button></td>`;
+    }
+    html += '</tr>';
+  });
+  html += '</table>';
+
+  // Legend
+  html += `<div style="display:flex;gap:12px;justify-content:center;margin-top:10px;font-size:11px;color:var(--muted);">
+    <span><span style="display:inline-block;width:10px;height:10px;background:#6c8ebf;border-radius:2px;margin-right:4px;"></span>Α</span>
+    <span><span style="display:inline-block;width:10px;height:10px;background:#82b366;border-radius:2px;margin-right:4px;"></span>Β</span>
+    <span><span style="display:inline-block;width:10px;height:10px;background:linear-gradient(135deg,#6c8ebf 50%,#82b366 50%);border-radius:2px;margin-right:4px;"></span>Α+Β</span>
+  </div>`;
+  $('cmpGrid').innerHTML = html;
+}
+
+function cmpToggleYear(y) {
+  const sel = activeCmpPanelSel === 'A' ? cmpA : cmpB;
+  const months = getMonthsWithDataForYear(y);
+  const allSel = months.every(m => sel.has(`${y}-${m}`));
+  if (allSel) { months.forEach(m => sel.delete(`${y}-${m}`)); }
+  else { months.forEach(m => sel.add(`${y}-${m}`)); }
+  renderCmpGrid(); renderCompareResult();
+}
+window.cmpToggleYear = cmpToggleYear;
+
+function cmpToggleCell(key) {
+  const sel = activeCmpPanelSel === 'A' ? cmpA : cmpB;
+  sel.has(key) ? sel.delete(key) : sel.add(key);
+  renderCmpGrid(); renderCompareResult();
+}
+window.cmpToggleCell = cmpToggleCell;
+
+function getDataForSel(sel) {
+  if (sel.size === 0) return [];
+  return shifts.filter(s => { const d = new Date(s.date); return sel.has(`${d.getFullYear()}-${d.getMonth()}`); });
+}
+
+function calcMetrics(data) {
+  const total   = data.reduce((a,s) => a+shiftTotal(s), 0);
+  const tips    = data.reduce((a,s) => a+Number(s.tips||0), 0);
+  const wage    = data.reduce((a,s) => a+Number(s.wage||0), 0);
+  const hours  = data.reduce((a,s) => a+calcHours(s.start,s.end), 0);
+  const count  = data.length;
+  return { total, tips, wage, hours, shifts: count,
+    avgPerShift: count ? total/count : 0,
+    avgTips: count ? tips/count : 0,
+    avgHours: count ? hours/count : 0,
+    tipsRatio: total ? (tips/total)*100 : 0 };
+}
+
+function renderCompareResult() {
+  const dataA = getDataForSel(cmpA);
+  const dataB = getDataForSel(cmpB);
+  if (!dataA.length && !dataB.length) {
+    $('compareResult').style.display = 'none';
+    return;
+  }
+  if (!dataA.length || !dataB.length) {
+    $('compareResult').style.display = 'block';
+    $('compareResult').innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:16px;">Επίλεξε και τις δύο περιόδους</div>';
+    return;
+  }
+  const A = calcMetrics(dataA);
+  const B = calcMetrics(dataB);
+
+  const pct = (a,b) => {
+    if (!a && !b) return '—';
+    if (!a) return '+∞';
+    const d = ((b-a)/Math.abs(a))*100;
+    const sign = d>=0 ? '+' : '';
+    return `${sign}${d.toFixed(1)}%`;
+  };
+  const color = (a,b) => b>a ? '#4caf50' : b<a ? '#e57373' : 'var(--muted)';
+
+  const row = (label, valA, valB, fmtFn) => {
+    const a = valA, b = valB;
+    return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;padding:10px 0;border-bottom:1px solid var(--border);align-items:center;">
+      <div style="font-size:13px;color:var(--muted);text-align:center;">${fmtFn(a)}</div>
+      <div style="font-size:12px;text-align:center;">
+        <div style="color:var(--muted);font-size:11px;margin-bottom:2px;">${label}</div>
+        <div style="font-weight:700;font-size:14px;color:${color(a,b)};">${pct(a,b)}</div>
+      </div>
+      <div style="font-size:13px;color:var(--muted);text-align:center;">${fmtFn(b)}</div>
+    </div>`;
+  };
+
+  $('compareResult').style.display = 'block';
+  $('compareResult').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;padding:6px 0 10px;border-bottom:2px solid var(--border);margin-bottom:4px;">
+        <div style="text-align:center;font-size:13px;font-weight:700;color:#6c8ebf;">Α<br><span style="font-size:11px;font-weight:400;">${dataA.length} βάρδιες</span></div>
+      <div style="text-align:center;font-size:11px;color:var(--muted);padding-top:6px;">vs</div>
+      <div style="text-align:center;font-size:13px;font-weight:700;color:#82b366;">Β<br><span style="font-size:11px;font-weight:400;">${dataB.length} βάρδιες</span></div>
+    </div>
+    ${row('Συνολικά κέρδη',     A.total,        B.total,        fmtEur)}
+    ${row('Τιπς',               A.tips,         B.tips,         fmtEur)}
+    ${row('Μισθός',         A.wage,         B.wage,         fmtEur)}
+    ${row('Βάρδιες',            A.shifts,       B.shifts,       v=>v)}
+    ${row('Ώρες',               A.hours,        B.hours,        v=>v.toFixed(1)+'h')}
+    ${row('Μ.Ο./βάρδια',        A.avgPerShift,  B.avgPerShift,  fmtEur)}
+    ${row('Μ.Ο. τιπς/βάρδια',   A.avgTips,      B.avgTips,      fmtEur)}
+    ${row('Μ.Ο. ώρες/βάρδια',   A.avgHours,     B.avgHours,     v=>v.toFixed(1)+'h')}
+  `;
+}
+window.renderCompare = renderCompare;
 
 function toggleHL(id) {
   const drop = $('hl-drop-' + id);
