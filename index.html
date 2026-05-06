@@ -1361,7 +1361,7 @@ function renderStats() {
     <div style="border-bottom:1px solid var(--border);">
       <div onclick="toggleHL('${id}')" style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;cursor:pointer;">
         <div>
-          <div style="font-size:13px;color:var(--muted);">${icon} ${label}</div>
+          <div style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:#39ff14;box-shadow:0 0 6px #39ff14;flex-shrink:0;display:inline-block;"></span>${label}</div>
           ${sub ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;">${sub}</div>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
@@ -1375,17 +1375,17 @@ function renderStats() {
   const monthLabel = key => { const [y,m] = key.split('-').map(Number); return `${MONTHS_GR_SHORT2[m]} ${y}`; };
 
   $('highlightsBlock').innerHTML = [
-    hlRow('bestShift',   '💰', 'Καλύτερη βάρδια',       fmtEur(shiftTotal(top5shifts[0])),        fmtDate(top5shifts[0].date),
+    hlRow('bestShift',   '', 'Καλύτερη βάρδια',       fmtEur(shiftTotal(top5shifts[0])),        fmtDate(top5shifts[0].date),
       top5List(top5shifts, s=>fmtDate(s.date), s=>fmtEur(shiftTotal(s)))),
-    hlRow('bestTip',     '🎉', 'Μεγαλύτερο τιπ',         fmtEur(Number(top5tips[0].tips||0)),       fmtDate(top5tips[0].date),
+    hlRow('bestTip',     '', 'Μεγαλύτερο τιπ',         fmtEur(Number(top5tips[0].tips||0)),       fmtDate(top5tips[0].date),
       top5List(top5tips, s=>fmtDate(s.date), s=>fmtEur(Number(s.tips||0)))),
-    hlRow('bestWeek',    '📅', 'Καλύτερη εβδομάδα (κέρδη)', fmtEur(top5weeks[0][1]),             weekRange(top5weeks[0][0]),
+    hlRow('bestWeek',    '', 'Καλύτερη εβδομάδα (κέρδη)', fmtEur(top5weeks[0][1]),             weekRange(top5weeks[0][0]),
       top5List(top5weeks, ([k])=>weekRange(k), ([,v])=>fmtEur(v))),
-    hlRow('bestWeekTips','🎊', 'Καλύτερη εβδομάδα (τιπς)',  fmtEur(top5weekTips[0][1]),           weekRange(top5weekTips[0][0]),
+    hlRow('bestWeekTips','', 'Καλύτερη εβδομάδα (τιπς)',  fmtEur(top5weekTips[0][1]),           weekRange(top5weekTips[0][0]),
       top5List(top5weekTips, ([k])=>weekRange(k), ([,v])=>fmtEur(v))),
-    hlRow('bestMonth',   '📆', 'Καλύτερος μήνας (κέρδη)',   fmtEur(top5months[0][1]),             monthLabel(top5months[0][0]),
+    hlRow('bestMonth',   '', 'Καλύτερος μήνας (κέρδη)',   fmtEur(top5months[0][1]),             monthLabel(top5months[0][0]),
       top5List(top5months, ([k])=>monthLabel(k), ([,v])=>fmtEur(v))),
-    hlRow('longest',     '⏱️', 'Μεγαλύτερη βάρδια',         `${calcHours(top5longest[0].start,top5longest[0].end).toFixed(1)}h`, fmtDate(top5longest[0].date),
+    hlRow('longest',     '', 'Μεγαλύτερη βάρδια',         `${calcHours(top5longest[0].start,top5longest[0].end).toFixed(1)}h`, fmtDate(top5longest[0].date),
       top5List(top5longest, s=>fmtDate(s.date), s=>`${calcHours(s.start,s.end).toFixed(1)}h`)),
   ].join('');
 
@@ -1407,7 +1407,7 @@ function renderStats() {
     <div style="border-bottom:1px solid var(--border);">
       <div onclick="toggleHL('ll${id}')" style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;cursor:pointer;">
         <div>
-          <div style="font-size:13px;color:var(--muted);">${icon} ${label}</div>
+          <div style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:#ff3131;box-shadow:0 0 6px #ff3131;flex-shrink:0;display:inline-block;"></span>${label}</div>
           ${sub ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;">${sub}</div>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
@@ -1419,17 +1419,17 @@ function renderStats() {
     </div>`;
 
   $('lowlightsBlock').innerHTML = [
-    llRow('bestShift',    '💸', 'Χειρότερη βάρδια',         fmtEur(shiftTotal(bot5shifts[0])),                fmtDate(bot5shifts[0].date),
+    llRow('bestShift',    '', 'Χειρότερη βάρδια',         fmtEur(shiftTotal(bot5shifts[0])),                fmtDate(bot5shifts[0].date),
       bot5List(bot5shifts, s=>fmtDate(s.date), s=>fmtEur(shiftTotal(s)))),
-    llRow('bestTip',      '😔', 'Μικρότερο τιπ',             fmtEur(Number(bot5tips[0]?.tips||0)),             bot5tips[0] ? fmtDate(bot5tips[0].date) : '',
+    llRow('bestTip',      '', 'Μικρότερο τιπ',             fmtEur(Number(bot5tips[0]?.tips||0)),             bot5tips[0] ? fmtDate(bot5tips[0].date) : '',
       bot5List(bot5tips, s=>fmtDate(s.date), s=>fmtEur(Number(s.tips||0)))),
-    llRow('bestWeek',     '📅', 'Χειρότερη εβδομάδα (κέρδη)', fmtEur(bot5weeks[0][1]),                       weekRange(bot5weeks[0][0]),
+    llRow('bestWeek',     '', 'Χειρότερη εβδομάδα (κέρδη)', fmtEur(bot5weeks[0][1]),                       weekRange(bot5weeks[0][0]),
       bot5List(bot5weeks, ([k])=>weekRange(k), ([,v])=>fmtEur(v))),
-    llRow('bestWeekTips', '🎊', 'Χειρότερη εβδομάδα (τιπς)',  fmtEur(bot5weekTips[0][1]),                    weekRange(bot5weekTips[0][0]),
+    llRow('bestWeekTips', '', 'Χειρότερη εβδομάδα (τιπς)',  fmtEur(bot5weekTips[0][1]),                    weekRange(bot5weekTips[0][0]),
       bot5List(bot5weekTips, ([k])=>weekRange(k), ([,v])=>fmtEur(v))),
-    llRow('bestMonth',    '📆', 'Χειρότερος μήνας (κέρδη)',   fmtEur(bot5months[0][1]),                       monthLabel(bot5months[0][0]),
+    llRow('bestMonth',    '', 'Χειρότερος μήνας (κέρδη)',   fmtEur(bot5months[0][1]),                       monthLabel(bot5months[0][0]),
       bot5List(bot5months, ([k])=>monthLabel(k), ([,v])=>fmtEur(v))),
-    llRow('longest',      '⏱️', 'Μικρότερη βάρδια',           `${calcHours(bot5shortest[0].start,bot5shortest[0].end).toFixed(1)}h`, fmtDate(bot5shortest[0].date),
+    llRow('longest',      '', 'Μικρότερη βάρδια',           `${calcHours(bot5shortest[0].start,bot5shortest[0].end).toFixed(1)}h`, fmtDate(bot5shortest[0].date),
       bot5List(bot5shortest, s=>fmtDate(s.date), s=>`${calcHours(s.start,s.end).toFixed(1)}h`)),
   ].join('');
 }
