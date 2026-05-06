@@ -617,13 +617,12 @@
           <label>Λήξη</label>
           <button type="button" class="time-btn" id="shiftEndBtn" onclick="openHourPicker('end')">
             <span class="time-btn-value" id="shiftEndLabel">--:00</span>
-            <span class="time-btn-icon">🕐</span>
           </button>
           <input type="hidden" id="shiftEnd" required>
         </div>
       </div>
       <div class="form-group">
-        <label>Υπερωρίες (ώρες) — προαιρετικό</label>
+        <label>Υπερωρίες (ώρες)</label>
         <input type="number" id="shiftOvertime" step="0.25" min="0" placeholder="0">
       </div>
       <div class="form-group">
@@ -636,7 +635,7 @@
       </div>
       <div class="form-group">
         <label>Σημειώσεις</label>
-        <textarea id="shiftNotes" rows="2" placeholder="προαιρετικό"></textarea>
+        <textarea id="shiftNotes" rows="2" placeholder=""></textarea>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" onclick="closeModal()">Ακύρωση</button>
@@ -1107,7 +1106,7 @@ function renderShifts() {
         <div class="shift-details">
           <span>⏰ <strong>${s.start}–${s.end}</strong> (${fmtH(hours)})</span>
           ${s.overtime ? `<span>⚡ Υπερ.: <strong>${fmtH(s.overtime)}</strong></span>` : '<span></span>'}
-          <span>💶 Μισθός: <strong>${fmtEur(s.wage)}</strong></span>
+          <span>💶 Μεροκάματο: <strong>${fmtEur(s.wage)}</strong></span>
           <span>💰 Τιπς: <strong>${fmtEur(s.tips || 0)}</strong></span>
           ${s.notes ? `<span style="grid-column: 1 / -1; margin-top:4px; font-style:italic">📝 ${escapeHtml(s.notes)}</span>` : ''}
         </div>
@@ -1726,6 +1725,21 @@ window.reloadData = async () => {
       openSettings();
     }, 400);
   }
+  const notesPlaceholders = [
+    'Έχεσε ένας παππούς στο πάτωμα',
+    'H Μαρκέλλα μου ήπιε τον καφέ που είχα αφήσει πάνω στον πάγκο',
+    'Με πήρε ο ύπνος στην τουαλέτα',
+    'Μου είπαν "επίσης" οταν τους είπα "καλή όρεξη"',
+    'Κάποιος έσπασε το μηχάνημα του καφέ. Δεν λέω ονόματα.',
+    'Πήγα τουαλέτα 4 φορές. Ήταν μεγάλη μέρα.',
+    'Πέντε και πέντε δέκα ίσον;',
+    'Δεν χτυπήσε το ξυπνητήρι',
+    'Ο Δημήτρης αντιστέκεται για τις επιχειρηματικές μου ιδέες. Θα τον πείσω.',
+    '1 ευρω τιπς σημερα. Ούτε για καφέ.',
+    'Σήμερα ήρθαν 200 οικογένειες με μωρό έκλαιγε όλη την ώρα. Το μωρό ήμουν εγώ.',
+    'Αν ξανά έρθει πελάτης 9 παρά 20 θα με πάνε φυλακή',
+  ];
+  $('shiftNotes').placeholder = "π.χ. " + notesPlaceholders[Math.floor(Math.random() * notesPlaceholders.length)];
 })();
 </script>
 </body>
